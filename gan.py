@@ -1,13 +1,9 @@
-from distutils.log import error
 import tkinter as tk
 from tkinter import ttk
 from vqgan_clip import *
-from matplotlib.pyplot import fill
 from tkinter import filedialog
 import time
 from PIL import ImageTk, Image
-
-
 
 class GUI:
     model_dict = {"ImageNet1024 (general/small/fast)": "vqgan_imagenet_f16_1024", "ImageNet16384 (general/big/slow)": "vqgan_imagenet_f16_16384", "WikiArt (art)": "wikiart_16384", "Coco (stuff)": "coco"}
@@ -150,9 +146,8 @@ class GUI:
         
     def select_image(self):
         # open tk file dialog
-        f_types = [('jpg Files', '*.jpg'),('PNG Files','*.png')]    
-        self.filename = filedialog.askopenfilename( multiple=True,
-            filetypes=f_types)[0]
+        self.filename = filedialog.askopenfilename( multiple=False,
+            filetypes=(('image files', ('.png', '.jpg')), ("all files", "*.*")))
         self.img = ImageTk.PhotoImage(Image.open(self.filename))  # PIL solution
         self.image_preview.pack_forget()
         

@@ -7,6 +7,7 @@ from InteractiveGUI import *
 from InteractiveGUI import GUI as IECGUI
 from MusicGUI import GUI as MUSICGUI
 from poems_gui import GUI as POEMSGUI
+from SCRNNGUI import GUI as SCRNNGUI
 
 from gan import GUI as GANGUI
 
@@ -34,6 +35,11 @@ def launch_poems(root):
     root.wm_state('iconic')
     gui = POEMSGUI(root)
 
+def launch_scrnn(root):    
+    root.wm_state('iconic')
+    gui = SCRNNGUI(root)
+    gui.run()
+
 if __name__ == "__main__":
     root = tk.Tk()
     root.geometry("500x300")
@@ -48,6 +54,8 @@ if __name__ == "__main__":
     launch_music_button = tk.Button(button_frame, text="GAN", command=lambda: launch_gan(root), font=("Helvetica", 24))    
     launch_music_button.pack(expand=True, fill=tk.BOTH)    
     launch_music_button = tk.Button(button_frame, text="Poems", command=lambda: launch_poems(root), font=("Helvetica", 24))    
+    launch_music_button.pack(expand=True, fill=tk.BOTH)    
+    launch_music_button = tk.Button(button_frame, text="Upscaler", command=lambda: launch_scrnn(root), font=("Helvetica", 24))    
     launch_music_button.pack(expand=True, fill=tk.BOTH)    
     root.mainloop()
 

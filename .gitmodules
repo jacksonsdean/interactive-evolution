@@ -7,3 +7,6 @@
 [submodule "SRCNN"]
 	path = SRCNN
 	url = https://github.com/Mirwaisse/SRCNN
+[submodule "tkvideo"]
+	path = tkvideo
+	url = https://github.com/huskeee/tkvideo
