@@ -1,0 +1,9 @@
+[submodule "CLIP"]
+	path = CLIP
+	url = https://github.com/openai/CLIP
+[submodule "taming-transformers"]
+	path = taming-transformers
+	url = git@github.com:CompVis/taming-transformers.git
+[submodule "SRCNN"]
+	path = SRCNN
+	url = https://github.com/Mirwaisse/SRCNN
