@@ -24,3 +24,9 @@ moviepy
 jupyter 
 ipywidgets
 transformers
+lpips
+datetime 
+timm
+./CLIP
+./guided-diffusion
+./taming-transformers

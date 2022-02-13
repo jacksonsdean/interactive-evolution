@@ -1,12 +1,14 @@
 import tkinter as tk
 from tkinter import ttk
 from vqgan_clip import *
+from vqgan_clip import run_gan as run_vqgan_clip
+from diffusion import run_diffusion
 from tkinter import filedialog
 import time
 from PIL import ImageTk, Image
 
 class GUI:
-    model_dict = {"ImageNet1024 (general/small/fast)": "vqgan_imagenet_f16_1024", "ImageNet16384 (general/big/slow)": "vqgan_imagenet_f16_16384", "WikiArt (art)": "wikiart_16384", "Coco (stuff)": "coco"}
+    model_dict = {"ImageNet1024 (general/small/fast)": "vqgan_imagenet_f16_1024", "ImageNet16384 (general/big/slow)": "vqgan_imagenet_f16_16384", "WikiArt (art)": "wikiart_16384", "Coco (stuff)": "coco", "Disco Diffusion (BETA)": "512x512_diffusion_uncond_finetune_008100"}
     
     def __init__(self, root=None):
         self.root = tk.Tk() if root is None else tk.Toplevel(root)
@@ -15,7 +17,6 @@ class GUI:
         self.iterations = 250
         self.update_freq = 2
         self.do_video = tk.BooleanVar(root, value=True)
-        
         
         self.model_variable = tk.StringVar(self.root)
         self.model_variable.set("ImageNet1024 (general/small/fast)") # default value
@@ -189,12 +190,17 @@ class GUI:
         self.root.update()
         self.root.update_idletasks()
         
-        
         prompt = self.prompt_text_box.get("1.0", tk.END)
-        run_gan(prompt, self.filename, modelo=self.model,progress_callback=self.progress_callback, intervalo_imagenes=self.update_freq, width=self.width, height=self.height, done_callback=self.done_callback,max_iteraciones=self.iterations, custom_save=f"saved_imgs/gan_output{time.time()}.png")
+        if self.model in ["512x512_diffusion_uncond_finetune_008100"]:
+            prompt_input = {0: [prompt]} # TODO
+            run_diffusion(prompt_input, {}, progress_callback=self.progress_callback, done_callback=self.done_callback, iterations=self.iterations, update_freq=self.update_freq, save_video=self.do_video.get(), model=self.model)
+        else:
+            run_vqgan_clip(prompt, self.filename, modelo=self.model,progress_callback=self.progress_callback, intervalo_imagenes=self.update_freq, width=self.width, height=self.height, done_callback=self.done_callback,max_iteraciones=self.iterations, custom_save=f"saved_imgs/gan_output{time.time()}.png")
         
         if self.requires_stop:
             self.stop()
             
 
 
+if __name__ == "__main__":
+    gui = GUI()
