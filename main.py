@@ -41,6 +41,7 @@ def launch_poems(root):
 def launch_loader(root):    
     root.wm_state('iconic')
     gui = LOADGUI(root)
+    gui.run()
 
 def launch_scrnn(root):    
     return
@@ -62,6 +63,8 @@ if __name__ == "__main__":
     # launch_music_button = tk.Button(button_frame, text="GAN", command=lambda: launch_gan(root), font=("Helvetica", 24))    
     # launch_music_button.pack(expand=True, fill=tk.BOTH)    
     launch_music_button = tk.Button(button_frame, text="Poems", command=lambda: launch_poems(root), font=("Helvetica", 24))    
+    launch_music_button.pack(expand=True, fill=tk.BOTH)    
+    launch_music_button = tk.Button(button_frame, text="Loader", command=lambda: launch_loader(root), font=("Helvetica", 24))    
     launch_music_button.pack(expand=True, fill=tk.BOTH)    
     # launch_music_button = tk.Button(button_frame, text="Upscaler", command=lambda: launch_scrnn(root), font=("Helvetica", 24))    
     # launch_music_button.pack(expand=True, fill=tk.BOTH)    

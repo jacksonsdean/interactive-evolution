@@ -93,7 +93,7 @@ class GUI:
         img = Image.fromarray((image*255.0).astype(np.uint8))
         img_tk = ImageTk.PhotoImage(img)
         image_preview = tk.Label(self.root, image=img_tk)
-        image_preview.image = img_tk
+        # image_preview.image = img_tk
         image_preview.grid(row=1, column=0, sticky="nsew")
         load_genome_btn.grid(row=0, column=0, sticky="nsew", columnspan=1)
         
