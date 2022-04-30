@@ -21,7 +21,7 @@ def is_valid_connection(from_node, to_node, config):
     if from_node.layer == to_node.layer:
         return False  # don't allow two nodes on the same layer to connect
 
-    if not config.allow_recurrent and from_node.layer > to_node.layer:
+    if not config.allow_recurrent and from_node.layer >= to_node.layer:
         return False  # invalid
 
     return True

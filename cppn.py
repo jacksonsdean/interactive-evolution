@@ -8,14 +8,80 @@ import numpy as np
 from config import Config
 
 
-try:
-    from nextGeneration.network_util import get_matching_connections, find_node_with_id
-    from nextGeneration.activation_functions import identity
-    from nextGeneration.network_util import name_to_fn, choose_random_function, is_valid_connection
-except ModuleNotFoundError:
-    from network_util import get_matching_connections, find_node_with_id
-    from activation_functions import identity
-    from network_util import name_to_fn, choose_random_function, is_valid_connection
+from network_util import get_matching_connections, find_node_with_id
+from activation_functions import identity
+from network_util import name_to_fn, choose_random_function, is_valid_connection
+from visualize import visualize_network
+
+
+
+def required_for_output(inputs, outputs, connections):
+    """
+    Collect the nodes whose state is required to compute the final network output(s).
+    :param inputs: list of the input identifiers
+    :param outputs: list of the output node identifiers
+    :param connections: list of (input, output) connections in the network.
+    NOTE: It is assumed that the input identifier set and the node identifier set are disjoint.
+    By convention, the output node ids are always the same as the output index.
+
+    Returns a set of identifiers of required nodes.
+    """
+
+    required = set(outputs)
+    s = set(outputs)
+    while 1:
+        # Find nodes not in S whose output is consumed by a node in s.
+        t = set(a for (a, b) in connections if b in s and a not in s)
+
+        if not t:
+            break
+
+        layer_nodes = set(x for x in t if x not in inputs)
+        if not layer_nodes:
+            break
+
+        required = required.union(layer_nodes)
+        s = s.union(t)
+
+    return required
+
+
+
+def feed_forward_layers(inputs, outputs, connections):
+    """
+    Collect the layers whose members can be evaluated in parallel in a feed-forward network.
+    :param inputs: list of the network input nodes
+    :param outputs: list of the output node identifiers
+    :param connections: list of (input, output) connections in the network.
+
+    Returns a list of layers, with each layer consisting of a set of node identifiers.
+    Note that the returned layers do not contain nodes whose output is ultimately
+    never used to compute the final network output.
+    """
+
+    required = required_for_output(inputs, outputs, connections)
+
+    layers = []
+    s = set(inputs)
+    while 1:
+        # Find candidate nodes c for the next layer.  These nodes should connect
+        # a node in s to a node not in s.
+        c = set(b for (a, b) in connections if a in s and b not in s)
+        # Keep only the used nodes whose entire input set is contained in s.
+        t = set()
+        for n in c:
+            if n in required and all(a in s for (a, b) in connections if b == n):
+                t.add(n)
+
+        if not t:
+            break
+
+        layers.append(t)
+        s = s.union(t)
+
+    return layers
+
+
 
 class NodeType(IntEnum):
     """Enum for the type of node."""
@@ -155,7 +221,7 @@ class CPPN():
                     this_pixel.append(math.sqrt(y_vals[y]**2 + x_vals[x]**2))
                 if use_bias:
                     this_pixel.append(1.0)# bias = 1.0
-                CPPN.pixel_inputs[y][x] = this_pixel
+                CPPN.pixel_inputs[y][x] = np.array(this_pixel)
 
     def __init__(self, config, nodes = None, connections = None) -> None:
         self.image = None
@@ -204,8 +270,12 @@ class CPPN():
         total_node_count = self.n_inputs + \
             self.n_outputs + self.config.hidden_nodes_at_start
         for _ in range(self.n_inputs):
+            if self.config.allow_input_activation_mutation:
+                activation = choose_random_function(self.config)
+            else:
+                activation = identity
             self.node_genome.append(
-                Node(identity, NodeType.INPUT, self.get_new_node_id(), 0))
+                Node(activation, NodeType.INPUT, self.get_new_node_id(), 0))
         for _ in range(self.n_inputs, self.n_inputs + self.n_outputs):
             if self.config.output_activation is None:
                 output_fn = choose_random_function(self.config)
@@ -310,7 +380,18 @@ class CPPN():
 
         self.mutate_activations()
         self.mutate_weights()
+        self.update_node_layers()
+        self.disable_invalid_connections()
 
+    def disable_invalid_connections(self):
+        return
+        for connection in self.connection_genome:
+            if connection.enabled:
+                if not is_valid_connection(connection.from_node, connection.to_node, self.config):
+                    print(f"Disabling invalid connection {connection.from_node.id} -> {connection.to_node.id}")
+                    connection.enabled = False
+                
+        self.update_node_layers()
     def add_connection(self):
         """Adds a connection to the CPPN."""
         for _ in range(20):  # try 20 times
@@ -393,9 +474,25 @@ class CPPN():
         cx.enabled = False
 
     def update_node_layers(self) -> int:
-        """Update the node layers using  recursive algorithm."""
+        connections = [(c.from_node.id, c.to_node.id) for c in self.connection_genome]
+        inputs = [n.id for n in self.input_nodes()]
+        outputs = [n.id for n in self.output_nodes()]
+        layers = feed_forward_layers(inputs, outputs, connections)
+        
+        for i,node in enumerate(self.input_nodes()):
+            node.layer = 0
+        for layer_index, layer in enumerate(layers):
+            for i, node_id in enumerate(layer):
+                node = find_node_with_id(self.node_genome, node_id)
+                node.layer = layer_index + 1
+        
+        return
+        """Update the node layers using recursive algorithm."""
         # layer = number of edges in longest path between this node and input
         def get_node_to_input_len(current_node, current_path=0, longest_path=0, attempts=0):
+            # if current_path > longest_path:
+                # longest_path = current_path
+            print(f"\t node {current_node.id}, current path {current_path}, longest path {longest_path}")
             if attempts > 1000:
                 print("ERROR: infinite recursion while updating node layers")
                 return longest_path
@@ -405,24 +502,29 @@ class CPPN():
                 # stop at input nodes
                 return current_path
             inputs_to_this_node = [
-                cx for cx in self.connection_genome if\
-                    not cx.is_recurrent and cx.to_node.id == current_node.id]
+                cx for cx in self.enabled_connections() if\
+                    not cx.is_recurrent and cx.to_node == current_node]
+            if len(inputs_to_this_node) == 0:
+                current_node.layer = 0
+                return 0
             for inp_cx in inputs_to_this_node:
                 this_len = get_node_to_input_len(
                     inp_cx.from_node, current_path+1, attempts+1)
                 if this_len >= longest_path:
                     longest_path = this_len
+            print(f"Done processing node {current_node.id}, current path {current_path}, longest path {longest_path}")
             return longest_path
 
         highest_hidden_layer = 1
-        for node in self.hidden_nodes():
+        for node in self.node_genome:
+            print(f"Processing node {node.id}")
             # calculate the layer of this node
             node.layer = get_node_to_input_len(node)
             highest_hidden_layer = max(node.layer, highest_hidden_layer)
 
-        for node in self.output_nodes():
+        # for node in self.output_nodes():
             # output nodes are always in the highest layer
-            node.layer = highest_hidden_layer+1
+            # node.layer = highest_hidden_layer+1
 
     def input_nodes(self) -> list:
         """Returns a list of all input nodes."""
@@ -516,11 +618,12 @@ class CPPN():
     def reset_activations(self):
         """Resets the activation of all nodes to 0."""
         for node in self.node_genome:
-            node.outputs = np.zeros(CPPN.pixel_inputs.shape)
-            node.sum_inputs = np.zeros(CPPN.pixel_inputs.shape)
+            node.outputs = None
+            node.sum_inputs = np.zeros((self.config.res_h, self.config.res_w), dtype=np.float16)
     
     def get_image_data(self):
         """Evaluate the network to get image data"""
+        self.disable_invalid_connections()
         res_h, res_w = self.config.res_h, self.config.res_w
         pixels = []
         for x in np.linspace(-.5, .5, res_w):
@@ -541,63 +644,74 @@ class CPPN():
             res_h = self.config.res_h
         else:
             res_h = override_h
+            self.config.res_w = override_w
+            force_recalculate = True
+            
         if override_w is None:
             res_w = self.config.res_w
         else:
             res_w = override_w
+            self.config.res_h = override_h
+            force_recalculate = True
+            
+
         if not force_recalculate and self.image is not None and\
             res_h == self.image.shape[0] and\
             res_w == self.image.shape[1]:
             return self.image
+
+        needs_new_inputs = CPPN.pixel_inputs is None or CPPN.pixel_inputs.shape != (res_h,res_w)
+        needs_new_inputs = needs_new_inputs or force_recalculate
+        if needs_new_inputs:
+            CPPN.initialize_inputs(res_h, res_w,
+                self.config.use_radial_distance,
+                self.config.use_input_bias,
+                self.n_inputs)
+            self.reset_activations()
 
         if self.config.allow_recurrent:
             # pixel by pixel (good for debugging)
             self.image = self.get_image_data()
         else:
             # whole image at once (100s of times faster)
-            self.image = self.get_image_data_fast_method(res_h, res_w)
+            self.image = self.get_image_data_fast_method()
         return self.image
 
-    def get_image_data_fast_method(self, override_h = None, override_w= None):
+    def get_image_data_fast_method(self):
         """Evaluate the network to get image data in parallel"""
         # initialize inputs if resolution changed
-        if override_h is None:
-            res_h = self.config.res_h
-        else:
-            res_h = override_h
-        if override_w is None:
-            res_w = self.config.res_w
-        else:
-            res_w = override_w
-        if CPPN.pixel_inputs is None or CPPN.pixel_inputs.shape != (res_h,res_w):
-            CPPN.initialize_inputs(res_h, res_w,
-                self.config.use_radial_distance,
-                self.config.use_input_bias,
-                self.n_inputs)
+        res_h, res_w = self.config.res_h, self.config.res_w
 
-        # always an output node
-        output_layer = self.node_genome[self.n_inputs].layer
-
-        for layer_index in range(0, output_layer+1):
-            layer = self.get_layer(layer_index)
-            for i, node in enumerate(layer):
+        connections = [(c.from_node.id, c.to_node.id) for c in self.enabled_connections()]
+        inputs = [n.id for n in self.input_nodes()]
+        outputs = [n.id for n in self.output_nodes()]
+        layers = feed_forward_layers(inputs, outputs, connections)
+        
+        for i,node in enumerate(self.input_nodes()):
+            node.sum_inputs = CPPN.pixel_inputs[:,:,min(i,self.n_inputs-1)]
+            node.outputs = node.activation(node.sum_inputs)  # apply activation
+            # node.outputs = node.outputs.reshape((res_h, res_w))
+        for layer_index, layer in enumerate(layers):
+            for i, node_id in enumerate(layer):
+                node = find_node_with_id(self.node_genome, node_id)
+                # node.layer = layer_index + 1
                 node_inputs = list(
                     filter(lambda x, n=node: x.to_node.id == n.id,
                         self.enabled_connections()))  # cxs that end here
 
-                node.sum_inputs = np.zeros((res_h, res_w), dtype=np.float16)
-                if layer_index == 0:
-                    node.sum_inputs += CPPN.pixel_inputs[:,:,min(i,self.n_inputs-1)]
-
                 for cx in node_inputs:
-                    if cx.from_node.outputs is not None:
+                    if cx.from_node.outputs is not None and cx.from_node.outputs.shape == (res_h, res_w):
                         inputs = cx.from_node.outputs * cx.weight
                         node.sum_inputs = node.sum_inputs + inputs
 
                 node.outputs = node.activation(node.sum_inputs)  # apply activation
                 node.outputs = node.outputs.reshape((res_h, res_w))
-
-        outputs = [node.outputs for node in self.output_nodes()]
+        
+        for i,node in enumerate(self.output_nodes()):
+            if node.outputs is None:
+                node.outputs = np.zeros((res_h, res_w), dtype=np.float16)
+        outputs = np.array([node.outputs for node in self.output_nodes() if node.outputs is not None])
+      
         if len(self.config.color_mode)>2:
             outputs =  np.array(outputs).transpose(1, 2, 0) # move color axis to end
         else:
@@ -605,53 +719,147 @@ class CPPN():
         self.image = outputs
         return outputs
 
-    def crossover(self, other_parent):
-        """Crossover with another CPPN using the method in Stanley and Miikkulainen (2007)."""
-        child = CPPN(self.config) # create child
 
-        # disjoint/excess genes are inherited from first parent
+
+        # # always an output node
+        # output_layer = self.node_genome[self.n_inputs].layer
+
+        # for layer_index in range(0, output_layer+1):
+        #     layer = self.get_layer(layer_index)
+        #     for i, node in enumerate(layer):
+        #         node_inputs = list(
+        #             filter(lambda x, n=node: x.to_node.id == n.id,
+        #                 self.enabled_connections()))  # cxs that end here
+
+        #         node.sum_inputs = np.zeros((res_h, res_w), dtype=np.float16)
+        #         if layer_index == 0:
+        #             node.sum_inputs += CPPN.pixel_inputs[:,:,min(i,self.n_inputs-1)]
+
+        #         for cx in node_inputs:
+        #             if cx.from_node.outputs is not None and cx.from_node.outputs.shape == (res_h, res_w):
+        #                 inputs = cx.from_node.outputs * cx.weight
+        #                 node.sum_inputs = node.sum_inputs + inputs
+
+        #         node.outputs = node.activation(node.sum_inputs)  # apply activation
+        #         node.outputs = node.outputs.reshape((res_h, res_w))
+
+        # outputs = np.array([node.outputs for node in self.output_nodes()])
+        # if len(self.config.color_mode)>2:
+        #     print( np.array(outputs.shape))
+        #     outputs =  np.array(outputs).transpose(1, 2, 0) # move color axis to end
+        # else:
+        #     outputs = np.reshape(outputs, (res_h, res_w))
+        # self.image = outputs
+        # return outputs
+
+    # def crossover(self, other_parent):
+    #     """Crossover with another CPPN using the method in Stanley and Miikkulainen (2007)."""
+    #     child = CPPN(self.config) # create child
+
+    #     # disjoint/excess genes are inherited from first parent
+    #     child.node_genome = copy.deepcopy(self.node_genome)
+    #     child.connection_genome = copy.deepcopy(self.connection_genome)
+
+    #     # line up by innovation number and find matches
+    #     child.connection_genome.sort(key=lambda x: x.innovation)
+    #     matching1, matching2 = get_matching_connections(
+    #         sorted(self.connection_genome, key=lambda x: x.innovation), sorted(other_parent.connection_genome, key=lambda x: x.innovation))
+
+    #     for match_index, _ in enumerate(matching1):
+    #         if match_index > len(matching2) - 1:
+    #             print(f"Error: {match_index} > {len(matching2) - 1}")
+    #             continue
+    #         child_cx = child.connection_genome[[x.innovation\
+    #             for x in child.connection_genome].index(
+    #             matching1[match_index].innovation)]
+
+    #         # Matching genes are inherited randomly
+    #         inherit_from_parent_1 = np.random.rand() < .5
+    #         if inherit_from_parent_1:
+    #             child_cx.weight = matching1[match_index].weight
+    #             new_from = copy.deepcopy(matching1[match_index].from_node)
+    #             new_to = copy.deepcopy(matching1[match_index].to_node)
+    #         else:
+    #             child_cx.weight = matching2[match_index].weight
+    #             new_from = copy.deepcopy(matching2[match_index].from_node)
+    #             new_to = copy.deepcopy(matching2[match_index].to_node)
+
+    #         # assign new nodes and connections
+    #         child_cx.from_node = new_from
+    #         child_cx.to_node = new_to
+    #         existing = find_node_with_id(child.node_genome, new_from.id)
+    #         try:
+    #             index_existing = child.node_genome.index(existing)
+    #             child.node_genome[index_existing] = new_from
+    #             existing = find_node_with_id(child.node_genome, new_to.id)
+    #             index_existing = child.node_genome.index(existing)
+    #             child.node_genome[index_existing] = new_to
+    #         except ValueError:
+    #             print(f"ERROR: Could not find node with id {new_from.id}")
+    #             continue
+    #         if(not matching1[match_index].enabled or not matching2[match_index].enabled):
+    #             if np.random.rand() < 0.75:  # 0.75 from Stanley/Miikulainen 2007
+    #                 child.connection_genome[match_index].enabled = False
+
+    #     child.update_node_layers()
+
+    #     return child
+    
+      
+    def crossover(self, parent2):
+        child = CPPN(self.config) # create child
+        # disjoint/excess genes are inherited from more fit parent
         child.node_genome = copy.deepcopy(self.node_genome)
         child.connection_genome = copy.deepcopy(self.connection_genome)
 
-        # line up by innovation number and find matches
+        # child.more_fit_parent = fit_parent # TODO
+
         child.connection_genome.sort(key=lambda x: x.innovation)
         matching1, matching2 = get_matching_connections(
-            self.connection_genome, other_parent.connection_genome)
+            self.connection_genome, parent2.connection_genome)
+        for match_index in range(len(matching1)):
+            try:
+                # Matching genes are inherited randomly
+                inherit_from_more_fit = np.random.rand() < .5 
+                
+                child_cx = child.connection_genome[[x.innovation for x in child.connection_genome].index(
+                    matching1[match_index].innovation)]
+                child_cx.weight = \
+                    matching1[match_index].weight if inherit_from_more_fit else matching2[match_index].weight
 
-        for match_index, _ in enumerate(matching1):
-            if match_index > len(matching2) - 1:
-                continue
-            child_cx = child.connection_genome[[x.innovation\
-                for x in child.connection_genome].index(
-                matching1[match_index].innovation)]
+                new_from = copy.deepcopy(matching1[match_index].from_node if inherit_from_more_fit else matching2[match_index].from_node)
+                child_cx.from_node = new_from
+                # if new_from.id<len(child.node_genome):
+                existing = find_node_with_id(child.node_genome, new_from.id)
+                index_existing = child.node_genome.index(existing)
+                child.node_genome[index_existing] = new_from
+                # else:
+                    # print("********ERR:new from id", new_from.id, "len:", len(child.node_genome))
+                    # continue # TODO
 
-            # Matching genes are inherited randomly
-            inherit_from_parent_1 = np.random.rand() < .5
-            if inherit_from_parent_1:
-                child_cx.weight = matching1[match_index].weight
-                new_from = copy.deepcopy(matching1[match_index].from_node)
-                new_to = copy.deepcopy(matching1[match_index].to_node)
-            else:
-                child_cx.weight = matching2[match_index].weight
-                new_from = copy.deepcopy(matching2[match_index].from_node)
-                new_to = copy.deepcopy(matching2[match_index].to_node)
+                new_to = copy.deepcopy(matching1[match_index].to_node if inherit_from_more_fit else matching2[match_index].to_node)
+                child_cx.to_node = new_to
 
-            # assign new nodes and connections
-            child_cx.from_node = new_from
-            child_cx.to_node = new_to
-            existing = find_node_with_id(child.node_genome, new_from.id)
-            index_existing = child.node_genome.index(existing)
-            child.node_genome[index_existing] = new_from
-            existing = find_node_with_id(child.node_genome, new_to.id)
-            index_existing = child.node_genome.index(existing)
-            child.node_genome[index_existing] = new_to
+                existing = find_node_with_id(child.node_genome, new_to.id)
+                index_existing = child.node_genome.index(existing)
+                child.node_genome[index_existing] = new_to
 
-            if(not matching1[match_index].enabled or not matching2[match_index].enabled):
-                if np.random.rand() < 0.75:  # 0.75 from Stanley/Miikulainen 2007
-                    child.connection_genome[match_index].enabled = False
+                if(not matching1[match_index].enabled or not matching2[match_index].enabled):
+                    if(np.random.rand() < 0.75):  # from Stanley/Miikulainen 2007
+                        child.connection_genome[match_index].enabled = False
+            except:
+                print("ERR in crossover:", match_index, len(matching1), len(matching2))
 
+        for cx in child.connection_genome:
+            cx.from_node = find_node_with_id(child.node_genome, cx.from_node.id)
+            cx.to_node = find_node_with_id(child.node_genome, cx.to_node.id)
+            assert cx.from_node in child.node_genome, f"{child.id}: {cx.from_node.id} {child.node_genome[cx.from_node.id].id}"
+            assert cx.to_node in child.node_genome, f"{child.id}: {cx.to_node.id} {child.node_genome[cx.to_node.id].id}"
+            # TODO this shouldn't be necessary
+            
         child.update_node_layers()
-
+        child.disable_invalid_connections()
+        
         return child
     
     def save(self, file_name):
@@ -661,12 +869,37 @@ class CPPN():
             json.dump(json_dict, f)
             f.close()
     def load(self, file_name):
-        """Save the CPPN to a file."""
+        """Load the CPPN from a file."""
         with open(file_name, 'r') as f:
             loaded = json.load(f)
             self.config = Config.create_from_json(loaded['config'])
             self.from_json(loaded)
+            f.close()
+            
     def construct_from_lists(self, nodes, connections):
         self.node_genome = [Node(name_to_fn(n[0]), NodeType(n[1]), i) for i, n in enumerate(nodes)]
         self.connection_genome = [Connection(find_node_with_id(self.node_genome, c[0]), find_node_with_id(self.node_genome, c[1]), c[2], c[3]) for c in connections]
         self.update_node_layers()
+    
+    @staticmethod
+    def load_static(file_name):
+        """Load the CPPN from a file."""
+        with open(file_name, 'r') as f:
+            loaded = json.load(f)
+            config = Config.create_from_json(loaded['config'])
+            i = CPPN(config)
+            f.close()
+            i.from_json(loaded)
+            return i
+
+
+if __name__=="__main__":
+    config = Config()
+    config.color_mode = "RGB"
+    indiv = CPPN(config)
+    connections = [(c.from_node.id, c.to_node.id) for c in indiv.enabled_connections()]
+    inputs = [n.id for n in indiv.input_nodes()]
+    outputs = [n.id for n in indiv.output_nodes()]
+    layers = feed_forward_layers(inputs, outputs, connections)
+    visualize_network(indiv)
+    print(layers)

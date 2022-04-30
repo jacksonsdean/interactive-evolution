@@ -1,5 +1,6 @@
 import colorsys
 import math
+from tkinter import filedialog
 # try:
     # import cupy as cp
     # using_cupy = True
@@ -24,22 +25,14 @@ import os
 import gc
 
 
-def save_image(individual, width, height, filename= None, force_recalculate=False):
-    color_mode = individual.config.color_mode
-    img = individual.get_image(height, width, color_mode, force_recalculate=force_recalculate)
-    img = np.clip(img, 0, 1)
-    if filename is None:
-        filename = f'saved_imgs/img_{time.time()}.png'
-        
-    if(color_mode == 'L'):
-        plt.imsave(filename, arr=np.asarray(img), format='png')
-    elif(color_mode == "HSL"):
+def save_image(individual, width, height):
+    img = individual.get_image(height, width, force_recalculate=True)
+    if individual.config.color_mode == "HSL":
         img = hsv2rgb(img)
-        plt.imsave(filename, arr=np.asarray(img), format='png')
-    else:
-        plt.imsave(filename, arr=np.asarray(img), format='png')
-
-    # plt.imsave(filename, arr=np.asarray(img), format='png')
+    img = Image.fromarray((img*255.0).astype(np.uint8))
+    file_name = filedialog.asksaveasfilename(filetypes=[('PNG', '*.png')], defaultextension=".png", initialdir="./saved_imgs")
+    if file_name != '':
+        img.save(file_name)
 
 def avg_pixel_distance(train_images, candidate_images):
     # calculate the average pixel difference
@@ -413,7 +406,9 @@ def add_audio_to_video(video_name, audio, fps):
     video = mpe.CompositeVideoClip([video])
     final = video.set_audio(audio)
     video_name = video_name.replace("tmp/", "")
-    final.write_videofile("videos/edited"+"_"+video_name.replace(".gif", ".mp4"), fps=fps)
+    file_name = filedialog.asksaveasfilename(filetypes=[('MP4', '*.mp4')], defaultextension=".mp4", initialdir="./saved_imgs")
+    
+    final.write_videofile(file_name, fps=fps)
     final.close()
     video.close()
     audio.close()
@@ -464,7 +459,7 @@ def make_weight_video(ind, iterations = 30, mutate = .1, cxs=None, res=256, name
                 use_mutate = np.random.uniform(-abs(mutate), abs(mutate))
             ind.connection_genome[cx].weight+=use_mutate
             
-        imgs.append((ind.get_image(res, res, ind.config.color_mode, True)*255.0).astype(np.uint8))
+        imgs.append((ind.get_image(res, res, True)*255.0).astype(np.uint8))
     # imgs.extend(imgs[::-2])
     imgs.extend(imgs[::-1])
 #     imageio.mimsave(f'saved_imgs/{time.time()}_{n}.gif', imgs, 'GIF-FI')

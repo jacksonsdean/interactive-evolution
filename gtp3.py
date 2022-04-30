@@ -1,6 +1,9 @@
 import openai
 
-openai.api_key = "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"
+with open("GTP3_KEY.txt", "r") as f:
+    key = f.read()
+    openai.api_key = key
+    f.close()
 
 def finish_poem(text):
     response = openai.Completion.create(

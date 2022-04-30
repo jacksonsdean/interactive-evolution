@@ -25,6 +25,9 @@ class Config:
         self.prob_reenable_connection = 0.1
         self.init_connection_probability = 1
         self.activations = get_all()
+        self.population_image_size = [200,200]
+        self.detail_image_size = [800,800]
+        self.save_size = [1024,1024]
 
         """DGNA: the probability of adding a node is 0.5 and the
         probability of adding a connection is 0.4.
@@ -96,4 +99,9 @@ class Config:
         with open(filename, 'r') as infile:
             self.from_json(infile.read())
             infile.close()
-            
+        
+    def save_json(self, filename):
+        with open(filename, 'w+') as outfile:
+            strng = self.to_json()
+            outfile.write(strng)
+            outfile.close()

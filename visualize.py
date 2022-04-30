@@ -86,10 +86,8 @@ def add_input_nodes(individual, node_labels, graph):
             # includes bias node or distance node
             input_labels = ['y', 'x', 'b/d']
 
-        label = f"{node.id}({node.layer})\n{input_labels[i]}:"
-        label += f"\n{node.activation.__name__}"
-        if node.outputs is not None:
-            label += f"\n{node.outputs:.3f}"
+        label = f"{node.layer}.{node.id}\n{input_labels[i]}:"
+        label += f"\n{node.activation.__name__.replace('_activation', '')}"
 
         node_labels[node] = label
 
@@ -105,10 +103,8 @@ def add_hidden_nodes(individual, node_labels, graph):
     for node in individual.hidden_nodes():
         graph.add_node(node, color='lightsteelblue',
                        shape='o', layer=int(node.layer))
-        label = f"{node.id}({node.layer})"
-        label += f"\n{node.activation.__name__}"
-        if node.outputs is not None:
-            label += f"\n{node.outputs:.3f}"
+        label = f"{node.layer}.{node.id}"
+        label += f"\n{node.activation.__name__.replace('_activation', '')}"
         node_labels[node] = label
 
 
@@ -125,10 +121,8 @@ def add_output_nodes(individual, node_labels, graph):
         title = color_mode[i] if i < len(color_mode) else 'XXX'
         graph.add_node(node, color='lightsteelblue',
                        shape='s', layer=int(node.layer))
-        label = f"{node.id}({node.layer})\n{title}:"
-        label += f"\n{node.activation.__name__}"
-        if node.outputs is not None:
-            label += f"\n{node.outputs:.3f}"
+        label = f"{node.layer}.{node.id}\n{title}:"
+        label += f"\n{node.activation.__name__.replace('_activation', '')}"
         node_labels[node] = label
 
 

@@ -16,47 +16,24 @@
     "allow_input_activation_mutation": true,
     "allow_recurrent": false,
     "animate": false,
-    "auto_curriculum": 0,
-    "autoencoder_frequency": 10,
-    "classification_image_size": [
-        32,
-        32
+    "color_mode": "HSL",
+    "detail_image_size": [
+        500,
+        500
     ],
-    "clustering_fitness_ratio": 0,
-    "color_mode": "RGB",
-    "curriculum": [],
     "do_crossover": true,
-    "dynamic_mutation_rate_end_modifier": 0.1,
-    "fitness_function": "avg_pixel_distance_fitness",
-    "fitness_threshold": 1,
     "hidden_nodes_at_start": 2,
     "init_connection_probability": 1,
-    "init_species_threshold": 2.5,
-    "map_elites_expand_dims": false,
-    "map_elites_max_values": [
-        1,
-        7
-    ],
-    "map_elites_min_values": [
-        0,
-        0
-    ],
-    "map_elites_resolution": [
-        8,
-        8
-    ],
     "max_weight": 2.5,
-    "novelty_adjusted_fitness_proportion": 0.0,
-    "novelty_archive_len": 5,
-    "novelty_k": 5,
-    "novelty_selection_ratio_within_species": 0.0,
-    "num_children": 10,
-    "num_inputs": 4,
+    "num_inputs": 3,
     "num_outputs": 3,
-    "num_parents": 28,
-    "num_workers": 4,
     "output_activation": "",
     "population_elitism": 1,
+    "population_image_size": [
+        100,
+        100
+    ],
+    "population_size": 28,
     "prob_add_connection": 0.35,
     "prob_add_node": 0.35,
     "prob_disable_connection": 0.1,
@@ -66,28 +43,15 @@
     "prob_reenable_connection": 0.1,
     "prob_remove_node": 0.1,
     "prob_weight_reinit": 0.0,
-    "resize_train": [
-        200,
-        200
+    "res_h": 100,
+    "res_w": 100,
+    "save_size": [
+        1024,
+        1024
     ],
-    "save_progress_images": false,
-    "species_selection_ratio": 0.5,
-    "species_stagnation_threshold": 20,
-    "species_target": 6,
-    "species_threshold_delta": 0.25,
-    "total_generations": 100,
-    "tournament_size": 4,
-    "tournament_winners": 2,
-    "train_image": [],
-    "train_image_path": null,
-    "use_dynamic_mutation_rates": false,
     "use_input_bias": true,
-    "use_map_elites": false,
-    "use_multithreading": false,
-    "use_radial_distance": true,
-    "use_speciation": true,
-    "weight_mutation_max": 2.0,
+    "use_radial_distance": false,
+    "weight_mutation_max": 2.5,
     "weight_threshold": 0,
-    "wildcard": false,
-    "within_species_elitism": 1
+    "wildcard": false
 }

@@ -187,11 +187,13 @@ class GUI():
         self.add_center_tag(self.entry_box)
         
     def finish_gtp3(self):
-        output = gtp3.finish_poem(self.entry_box.get(1.0, tk.END))
-        self.output_box.delete(1.0, tk.END)
-        self.output_box.insert(tk.END, output)
-        self.add_center_tag(self.output_box)
-        
+        try:
+            output = gtp3.finish_poem(self.entry_box.get(1.0, tk.END))
+            self.output_box.delete(1.0, tk.END)
+            self.output_box.insert(tk.END, output)
+            self.add_center_tag(self.output_box)
+        except Exception as e:
+            tk.messagebox.showinfo("Error", "Could not finish poem.\n\n" + str(e))
     def add_center_tag(self, box):
         box.tag_add("center", "1.0", "end")
         

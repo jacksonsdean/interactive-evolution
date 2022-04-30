@@ -3,22 +3,18 @@ import tkinter as tk
 import matplotlib.pyplot as plt
 plt.style.use('seaborn')
 
-from InteractiveGUI import *
-from InteractiveGUI import GUI as IECGUI
-from MusicGUI import GUI as MUSICGUI
-from poems_gui import GUI as POEMSGUI
-from load_gui import GUI as LOADGUI
+from interactive_gui import *
+from interactive_gui import GUI as IEC_GUI
+from music_gui import GUI as Music_GUI
+from poems_gui import GUI as Poems_GUI
+from load_gui import GUI as Loader_GUI
 from config import Config
-# from SCRNNGUI import GUI as SCRNNGUI
-
-# from gan import GUI as GANGUI
 
 def launch_iec(root):    
     root.wm_state('iconic')
     
-    config = Config()
-    config.load_saved("iec_config.json")
-    gui = IECGUI(config,root)
+  
+    gui = IEC_GUI(root)
     gui.run()
 
 def launch_music(root):    
@@ -26,28 +22,18 @@ def launch_music(root):
     
     config = Config()
     config.load_saved("music_config.json")
-    gui = MUSICGUI(config,root)
+    gui = Music_GUI(config,root)
     gui.run()
 
-def launch_gan(root):  
-    return
-    root.wm_state('iconic')
-    # gui = GANGUI(root)
-    
 def launch_poems(root):    
     root.wm_state('iconic')
-    gui = POEMSGUI(root)
+    gui = Poems_GUI(root)
     
 def launch_loader(root):    
     root.wm_state('iconic')
-    gui = LOADGUI(root)
+    gui = Loader_GUI(root)
     gui.run()
 
-def launch_scrnn(root):    
-    return
-    root.wm_state('iconic')
-    gui = SCRNNGUI(root)
-    gui.run()
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -60,14 +46,10 @@ if __name__ == "__main__":
     launch_iec_button.pack(expand=True, fill=tk.BOTH)    
     launch_music_button = tk.Button(button_frame, text="Music", command=lambda: launch_music(root), font=("Helvetica", 24))    
     launch_music_button.pack(expand=True, fill=tk.BOTH)    
-    # launch_music_button = tk.Button(button_frame, text="GAN", command=lambda: launch_gan(root), font=("Helvetica", 24))    
-    # launch_music_button.pack(expand=True, fill=tk.BOTH)    
-    launch_music_button = tk.Button(button_frame, text="Poems", command=lambda: launch_poems(root), font=("Helvetica", 24))    
-    launch_music_button.pack(expand=True, fill=tk.BOTH)    
-    launch_music_button = tk.Button(button_frame, text="Loader", command=lambda: launch_loader(root), font=("Helvetica", 24))    
-    launch_music_button.pack(expand=True, fill=tk.BOTH)    
-    # launch_music_button = tk.Button(button_frame, text="Upscaler", command=lambda: launch_scrnn(root), font=("Helvetica", 24))    
-    # launch_music_button.pack(expand=True, fill=tk.BOTH)    
+    launch_poems_button = tk.Button(button_frame, text="Poems", command=lambda: launch_poems(root), font=("Helvetica", 24))    
+    launch_poems_button.pack(expand=True, fill=tk.BOTH)    
+    launch_loader_button = tk.Button(button_frame, text="Load Genomes", command=lambda: launch_loader(root), font=("Helvetica", 24))    
+    launch_loader_button.pack(expand=True, fill=tk.BOTH)    
     root.mainloop()
 
 
