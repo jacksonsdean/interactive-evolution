@@ -62,7 +62,7 @@ class GUI:
         def load_genome():
             file = filedialog.askopenfile(mode='r', filetypes=[('JSON', '*.json')], initialdir="./saved_genomes")
             self.individual = load_from_file(file.name)
-            image = self.individual.get_image(1024, 1024, force_recalculate=True)
+            image = self.individual.get_image(800, 800, force_recalculate=True)
             img = Image.fromarray((image*255.0).astype(np.uint8))
             img_tk = ImageTk.PhotoImage(img)
             image_preview.image = img_tk
@@ -81,7 +81,7 @@ class GUI:
             w = int(self.save_w_input.get())
             h = int(self.save_h_input.get())
             img = self.individual.get_image(h, w, force_recalculate=True)
-            img = Image.fromarray((image*255.0).astype(np.uint8))
+            img = Image.fromarray((img*255.0).astype(np.uint8))
             file_name = filedialog.asksaveasfilename(filetypes=[('PNG', '*.png')], defaultextension=".png", initialdir="./saved_imgs")
             print(file_name)
             if file_name != '':
