@@ -1,6 +1,7 @@
 
 from logging import warning
 from math import e
+import platform
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage import color
@@ -51,10 +52,11 @@ def mutate(child, config):
         child.add_connection()
     if(np.random.uniform(0,1) < config.prob_disable_connection):
         child.disable_connection()
-    # if(np.random.uniform(0,1)< prob_mutate_activation):
     
     child.mutate_activations()
     child.mutate_weights()
+    child.update_node_layers()
+    child.disable_invalid_connections()
     return child
 
 
@@ -432,7 +434,12 @@ class GUI:
         self.popup_menu.add_command(label ="Save genome")
         self.popup_menu.add_command(label ="Show genome")
         self.popup_menu.add_command(label ="Details")
-        self.root.bind("<Button-3>", self.do_popup)
+        # if windows
+        if platform.system() == "Windows":
+            self.root.bind("<Button-3>", self.do_popup)
+        # if mac
+        elif platform.system() == "Darwin":
+            self.root.bind("<Button-2>", self.do_popup)
         
         next_gen = tk.Button(self.command_panel, text='Next Generation', command=lambda: self.next_gen_button_clicked(), height=3,font=('Arial', 15, 'bold'))
         prev_btn = tk.Button(self.command_panel, text='Previous Generation', command=lambda: self.previous_gen_clicked(), height=3,font=('Arial', 15, 'bold'))
@@ -653,16 +660,16 @@ class GUI:
         def select(index):
             if self.pop[index] in self.selected:
                 self.selected.remove(self.pop[index])
-                self.img_panels[index].configure(borderwidth=6, relief="sunken", bg="white")
+                self.img_panels[index].configure(borderwidth=6, relief="sunken", highlightbackground="white", highlightcolor="white", bg="white", highlightthickness=2)
             else:
                 self.selected.append(self.pop[index])
-                self.img_panels[index].configure(borderwidth=6, relief="raised", bg="red")
+                self.img_panels[index].configure(borderwidth=6, relief="raised", highlightbackground="red", highlightcolor="red", bg="red", highlightthickness=2)
                 
         for i, individual in enumerate(self.pop):
             row = i // 7
             column = i % 7
             if self.config.animate:
-                cxs = list(np.random.choice(range(len(individual.connection_genome)), size=min(len(ind.connection_genome), 10), replace=False))
+                cxs = list(np.random.choice(range(len(individual.connection_genome)), size=min(len(individual.connection_genome), 10), replace=False))
                 individual.animated_cxs = cxs
                 self.img_panels[i] = tk.Label(self.images_panel)
                 
@@ -684,7 +691,8 @@ class GUI:
                 self.img_panels[i].image = img_tk
                 
             self.img_panels[i].grid(row=row, column=column, padx= 2, pady= 2)
-            self.img_panels[i].configure(borderwidth=6, relief="sunken", bg="white")
+            self.img_panels[i].configure(borderwidth=6, relief="sunken", highlightbackground="white", highlightcolor="white", bg="white", highlightthickness=2)
+            
             
         self.images_panel.pack()
         self.root.config(cursor="")

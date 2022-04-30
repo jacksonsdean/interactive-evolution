@@ -384,7 +384,7 @@ class CPPN():
         self.disable_invalid_connections()
 
     def disable_invalid_connections(self):
-        return
+        # return
         for connection in self.connection_genome:
             if connection.enabled:
                 if not is_valid_connection(connection.from_node, connection.to_node, self.config):
@@ -591,7 +591,7 @@ class CPPN():
                     index=i: x.to_node.id == self.node_genome[index].id,
                     self.enabled_connections())):
                     self.node_genome[i].sum_input += node_input.from_node.outputs * node_input.weight
-
+                    
                 self.node_genome[i].outputs =\
                     self.node_genome[i].activation(self.node_genome[i].sum_input)
 

@@ -12,8 +12,6 @@ from config import Config
 
 def launch_iec(root):    
     root.wm_state('iconic')
-    
-  
     gui = IEC_GUI(root)
     gui.run()
 
@@ -34,10 +32,18 @@ def launch_loader(root):
     gui = Loader_GUI(root)
     gui.run()
 
+def wildcard(root):
+    for wid in root.winfo_children():
+        de=("%02x"%random.randint(0,255))
+        re=("%02x"%random.randint(0,255))
+        we=("%02x"%random.randint(0,255))
+        ge="#"
+        color=ge+de+re+we
+        wid.configure(bg = color, highlightbackground=color, font= ("Comic Sans MS", random.randint(15,25), "bold"))
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry("500x300")
+    root.geometry("500x500")
     root.title("For Rachel")
     
     button_frame = tk.Frame(root)
@@ -50,6 +56,8 @@ if __name__ == "__main__":
     launch_poems_button.pack(expand=True, fill=tk.BOTH)    
     launch_loader_button = tk.Button(button_frame, text="Load Genomes", command=lambda: launch_loader(root), font=("Helvetica", 24))    
     launch_loader_button.pack(expand=True, fill=tk.BOTH)    
+    launch_wildcard_button = tk.Button(button_frame, text="?", command=lambda: wildcard(button_frame), font=("Helvetica", 24))    
+    launch_wildcard_button.pack(expand=True, fill=tk.BOTH)    
     root.mainloop()
 
 

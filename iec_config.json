@@ -16,7 +16,7 @@
     "allow_input_activation_mutation": true,
     "allow_recurrent": false,
     "animate": false,
-    "color_mode": "HSL",
+    "color_mode": "RGB",
     "detail_image_size": [
         500,
         500
@@ -30,8 +30,8 @@
     "output_activation": "",
     "population_elitism": 1,
     "population_image_size": [
-        100,
-        100
+        150,
+        150
     ],
     "population_size": 28,
     "prob_add_connection": 0.35,
@@ -43,8 +43,8 @@
     "prob_reenable_connection": 0.1,
     "prob_remove_node": 0.1,
     "prob_weight_reinit": 0.0,
-    "res_h": 100,
-    "res_w": 100,
+    "res_h": 150,
+    "res_w": 150,
     "save_size": [
         1024,
         1024
