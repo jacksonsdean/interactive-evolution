@@ -7,9 +7,11 @@ from InteractiveGUI import *
 from InteractiveGUI import GUI as IECGUI
 from MusicGUI import GUI as MUSICGUI
 from poems_gui import GUI as POEMSGUI
-from SCRNNGUI import GUI as SCRNNGUI
+from load_gui import GUI as LOADGUI
+from config import Config
+# from SCRNNGUI import GUI as SCRNNGUI
 
-from gan import GUI as GANGUI
+# from gan import GUI as GANGUI
 
 def launch_iec(root):    
     root.wm_state('iconic')
@@ -28,14 +30,20 @@ def launch_music(root):
     gui.run()
 
 def launch_gan(root):  
+    return
     root.wm_state('iconic')
-    gui = GANGUI(root)
+    # gui = GANGUI(root)
     
 def launch_poems(root):    
     root.wm_state('iconic')
     gui = POEMSGUI(root)
+    
+def launch_loader(root):    
+    root.wm_state('iconic')
+    gui = LOADGUI(root)
 
 def launch_scrnn(root):    
+    return
     root.wm_state('iconic')
     gui = SCRNNGUI(root)
     gui.run()
@@ -51,12 +59,12 @@ if __name__ == "__main__":
     launch_iec_button.pack(expand=True, fill=tk.BOTH)    
     launch_music_button = tk.Button(button_frame, text="Music", command=lambda: launch_music(root), font=("Helvetica", 24))    
     launch_music_button.pack(expand=True, fill=tk.BOTH)    
-    launch_music_button = tk.Button(button_frame, text="GAN", command=lambda: launch_gan(root), font=("Helvetica", 24))    
-    launch_music_button.pack(expand=True, fill=tk.BOTH)    
+    # launch_music_button = tk.Button(button_frame, text="GAN", command=lambda: launch_gan(root), font=("Helvetica", 24))    
+    # launch_music_button.pack(expand=True, fill=tk.BOTH)    
     launch_music_button = tk.Button(button_frame, text="Poems", command=lambda: launch_poems(root), font=("Helvetica", 24))    
     launch_music_button.pack(expand=True, fill=tk.BOTH)    
-    launch_music_button = tk.Button(button_frame, text="Upscaler", command=lambda: launch_scrnn(root), font=("Helvetica", 24))    
-    launch_music_button.pack(expand=True, fill=tk.BOTH)    
+    # launch_music_button = tk.Button(button_frame, text="Upscaler", command=lambda: launch_scrnn(root), font=("Helvetica", 24))    
+    # launch_music_button.pack(expand=True, fill=tk.BOTH)    
     root.mainloop()
 
 

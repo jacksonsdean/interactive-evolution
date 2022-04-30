@@ -9,7 +9,6 @@ import numpy as np
 from skimage.color import rgb2hsv, hsv2rgb
 from skimage.measure import inertia_tensor, perimeter, shannon_entropy
 from skimage.filters import gaussian, median, sobel_v
-from sklearn.metrics import mean_squared_error
 from skimage.transform import resize
 from tqdm import tqdm, trange
 import time
@@ -24,24 +23,9 @@ import os
 
 import gc
 
-import torch
-from torch import tensor
-import torch.nn as nn
-import torchvision.models as torch_models
-import torch.nn.functional as F
 
-# from lshash import lshash
-
-
-# import torch.nn as nn
-# from torch import tensor, double, float64, flatten
-# import torch.nn.functional as F
-# import torch
-# import torchvision.models as torch_models
-# from torchvision import datasets, transforms as T
-
-
-def save_image(individual, width, height, color_mode, filename= None, force_recalculate=False):
+def save_image(individual, width, height, filename= None, force_recalculate=False):
+    color_mode = individual.config.color_mode
     img = individual.get_image(height, width, color_mode, force_recalculate=force_recalculate)
     img = np.clip(img, 0, 1)
     if filename is None:
@@ -217,148 +201,6 @@ def diff_feature_set(train_image, candidate_images):
         # if(math_module==cp): diffs = diffs.get() # retrieve from GPU
 
     return diffs
-
-
-class Net(nn.Module):
-    def __init__(self, n_channels, height, width):
-        super().__init__()
-        self.n_channels = n_channels
-        self.conv1 = nn.Conv2d(n_channels, 100, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(100, 60, 3)
-        # self.conv3 = nn.Conv2d(60, 20, 5)
-        # self.linear_neurons = self.linear_input_neurons(height, width)
-        # self.fc1 = nn.Linear(self.linear_neurons, 200) # 200 output features TODO scale with width and height?
-        # self.fc2 = nn.Linear(120, 84)
-        # self.fc3 = nn.Linear(84, 100)
-
-    def forward(self, x):
-        
-        # x = self.pool(F.tanh(self.conv1(x)))
-        x = self.conv1(x)
-        x = self.conv2(x)
-        # x = self.conv3(x)
-        # x = self.pool(self.conv1(x))
-        # x = self.pool(self.conv2(x))
-        
-        # x = self.pool(F.tanh(self.conv2(x)))
-        # x = self.pool(self.conv1(x))
-        # x = self.pool(self.conv2(x))
-        # x = x.view(-1, self.linear_neurons)
-        # x = F.tanh(self.fc1(x))
-        # x = F.relu(self.fc2(x))
-        
-        # x = self.fc1(x)
-        # x = self.fc2(x)
-
-        # x = self.fc3(x)
-        return x
-
-    def linear_input_neurons(self, height, width):
-        def size_after_relu(x):
-            x = self.pool(F.tanh(self.conv1(x.float())))
-            x = self.pool(F.tanh(self.conv2(x.float())))
-            return x.size()
-        size = size_after_relu(torch.rand(1, 1, height, width))
-        m = 1
-        for i in size:
-            m *= i
-        return int(m)
-
-
-
-def diff_cnn_trained(train, candidates):
-    batch_size = candidates.shape[0]
-    in_channels = 3 if (len(train.shape)>2) else 1
-    height, width = train.shape[0], train.shape[1] 
-    # trained_net = torch_models.regnet_y_400mf(pretrained=True)
-    trained_net = torch_models.mobilenet_v3_small (pretrained=True)
-    # trained_net = torch_models.vgg16(pretrained=True)
-    # trained_net = torch_models.alexnet(pretrained=True)
-    # trained_net = torch_models.inception_v3(pretrained=True)
-    # trained_net = torch_models.efficientnet_b0(pretrained=True)
-    # trained_net = torch_models.efficientnet_b6(pretrained=True)
-
-    # remove output layer:
-    trained_net = torch.nn.Sequential(*(list(trained_net.children())[:-1])) # remove classification layer
-    train = np.expand_dims(train, axis=0) # convert to batch
-    if(in_channels < 3):
-        # convert from grayscale to rgb
-        rgb_train = np.zeros(shape=(1, height, width, 3))
-        for i in range(len(train)):
-            rgb_train[i] = np.stack((train[i], train[i], train[i]), axis=2)
-        train = rgb_train
-        
-        rgb_candidates = np.zeros(shape=(batch_size, height, width, 3))
-        for i in range(len(candidates)):
-            rgb_candidates[i] = np.stack((candidates[i], candidates[i], candidates[i]), axis=2)
-        candidates = rgb_candidates
-    else:
-        train = train.reshape(1, height, width, in_channels)  
-        candidates = candidates.reshape(batch_size, height, width,in_channels)
-    # pytorch wants color channel as axis 0
-    train = train.transpose(0, 3, 1, 2)
-    candidates = candidates.transpose(0, 3, 1, 2)
-    
-    train = tensor(train.astype(np.float32))
-    candidates = tensor(candidates.astype(np.float32))
-
-    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
-    train = train.to(device)
-    candidates = candidates.to(device)
-    trained_net = trained_net.to(device)
-
-    trained_net.eval()
-    with torch.no_grad():
-        train = trained_net(train)
-        candidates = trained_net(candidates)
-        criterion = nn.MSELoss(reduction="none")
-        losses = criterion(candidates, train)
-        losses = losses.flatten(start_dim=1)
-        losses = torch.mean(losses, dim=1).cpu().detach().numpy()
-    return losses 
-
-def diff_cnn(train, candidates):
-    train = np.expand_dims(train, axis=0) # turn image into batch
-    
-    in_channels = 3 if (len(train.shape)>3) else 1
-    height = train.shape[1]
-    width  = train.shape[2]
-    batch_size = candidates.shape[0]
-    
-    if(width<15):
-        # TODO not great
-        width*=2
-        height*=2
-        train = resize(train, (1, height, width))
-        candidates = resize(candidates, (batch_size, height, width))
-
-    if in_channels > 1:
-        # put color channel first
-        train = train.transpose(0, 3, 1, 2)
-        candidates = candidates.transpose(0, 3, 1, 2)
-    else:
-        train = np.expand_dims(train, axis=0) # add color dim
-        candidates = np.expand_dims(candidates, axis=1) # add color dim
-        
-    train = tensor(train.astype(np.float32))
-    candidates = tensor(candidates.astype(np.float32))
-
-    net = Net(in_channels, height, width)
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    train = train.to(device)
-    candidates = candidates.to(device)
-    net = net.to(device)
-    train = net(train)
-    candidates = net(candidates)
-
-    # criterion = nn.MSELoss()
-    # criterion = nn.L1Loss()
-    # loss = criterion(candidate, train).cpu().detach().numpy()
-    error_criterion = nn.MSELoss(reduction='none')
-    losses = torch.mean(error_criterion(candidates, train), dim=(1,2,3)).detach().cpu().numpy() # compute loss for each image
-    return losses
 
 #Inertia tensor? https://scikit-image.org/docs/dev/api/skimage.measure.html#skimage.measure.inertia_tensor
 # perimeter? https://scikit-image.org/docs/dev/api/skimage.measure.html#skimage.measure.perimeter

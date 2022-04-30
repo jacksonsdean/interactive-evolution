@@ -9,12 +9,12 @@ from PIL import Image
 import copy
 from IPython.display import display # to display images
 import time
-from util import *
+from network_util import *
 from cppn import *
 from image_utils import *
-from node_functions import *
+from activation_functions import *
 from config import *
-from individual import *
+from cppn import *
 import warnings
 warnings.filterwarnings('ignore') # Danger, Will Robinson! (not a scalable hack, and may surpress other helpful warning other than for ill-conditioned bootstrapped CI distributions)
 from multiprocessing.pool import ThreadPool as Pool
@@ -41,7 +41,7 @@ def mutate(child, config):
     if hasattr(child,"animation_name"): delattr(child,"animation_name")
     
     if(np.random.uniform(0,1) < config.prob_random_restart):
-        child = Individual(config)
+        child = CPPN(config)
     if(np.random.uniform(0,1) < config.prob_add_node):
         child.add_node()
     if(np.random.uniform(0,1) < config.prob_remove_node):
@@ -64,7 +64,7 @@ class GUI:
         self.root = tk.Tk() if root is None else tk.Toplevel(root)
         self.history = []
         self.gen = 0
-        self.individual = Individual(config)
+        self.individual = CPPN(config)
         self.new_config()
         self.music_file = ""
         self.sample_rate = 0
@@ -333,7 +333,7 @@ class GUI:
         
         def load_genome():
             file = filedialog.askopenfile(mode='r', filetypes=[('JSON', '*.json')], initialdir="./saved")
-            self.individual = Individual.load(file.name)
+            self.individual = CPPN.load(file.name)
             self.config = self.individual.config
             self.new_config()
             image = self.individual.get_image(1024, 1024, self.config.color_mode, force_recalculate=True)

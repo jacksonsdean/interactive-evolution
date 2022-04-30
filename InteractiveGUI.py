@@ -8,20 +8,19 @@ plt.style.use('seaborn')
 from PIL import Image
 import copy
 import time
-from util import *
+from network_util import *
 from cppn import *
 from image_utils import *
 # from species import *
 # from evolution import *
-from node_functions import *
-from individual import *
+from activation_functions import *
+from cppn import *
 # from lib.classification import classification_fitness
 # from lib.autoencoder import initialize_encoders
 import warnings
 warnings.filterwarnings('ignore') # Danger, Will Robinson! (not a scalable hack, and may surpress other helpful warning other than for ill-conditioned bootstrapped CI distributions)
 from tqdm.notebook import tqdm, trange
 from multiprocessing.pool import ThreadPool as Pool
-import asyncio
 import os
 
 import tkinter as tk
@@ -31,27 +30,25 @@ from functools import partial
 from tkvideo import tkvideo
 from tkinter.ttk import *
 
-USE_NOVELTY = False
-
 def mutate(child, config):
     child.image = None # image will be different after mutation
     child.fitness, child.adjusted_fitness = -math.inf, -math.inf # new fitnesses after mutation
     if hasattr(child,"animation_name"): delattr(child,"animation_name")
     
     if(np.random.uniform(0,1) < config.prob_random_restart):
-        child = Individual(config)
+        child = CPPN(config)
     if(np.random.uniform(0,1) < config.prob_add_node):
         child.add_node()
     if(np.random.uniform(0,1) < config.prob_remove_node):
         child.remove_node()
     if(np.random.uniform(0,1) < config.prob_add_connection):
-        child.add_connection(config.prob_reenable_connection, config.allow_recurrent)
+        child.add_connection()
     if(np.random.uniform(0,1) < config.prob_disable_connection):
         child.disable_connection()
     # if(np.random.uniform(0,1)< prob_mutate_activation):
     
-    child.mutate_activations(config.prob_mutate_activation)
-    child.mutate_weights(config.weight_mutation_max, config.prob_mutate_weight)
+    child.mutate_activations()
+    child.mutate_weights()
     return child
 
 
@@ -123,6 +120,9 @@ class GUI:
                     self.config.num_outputs = len(self.config.color_mode)
                     needs_reset = True
             self.config.save_json("interactive_config.json")
+            for individual in self.pop:
+                individual.config = self.config
+                
             if needs_reset:
                 self.reset_button_clicked()
             else:
@@ -456,7 +456,7 @@ class GUI:
     def details(self, selected):
         wins = [None]*len(selected)
         for i, ind in enumerate(selected):
-            image = ind.get_image(1024, 1024, self.config.color_mode)
+            image = ind.get_image(1024, 1024)
             win = tk.Toplevel(self.root)
             wins[i] = win
             weight = tk.Button(wins[i], text="Weight GIF", command=lambda ind=ind: self.weight_gif(ind),height=3,font=('Arial', 15, 'bold'))
@@ -496,7 +496,8 @@ class GUI:
 
     def save_button_clicked(self):
         for ind in self.selected:
-            save_image(ind, 4096, 4096, self.config.color_mode) 
+            save_image
+            (ind, 4096, 4096) 
     
     def update_title(self):
         self.root.title(f"Generation: {self.gen} | Nodes: {np.mean([len(ind.node_genome) for ind in self.pop]):.2f} | Connections: {np.mean([len(list(ind.enabled_connections())) for ind in self.pop]):.2f}")
@@ -558,13 +559,11 @@ class GUI:
                 self.img_panels[i].bind("<Button-1>", lambda event, index=i: select(index))
                 self.img_panels[i].update()
             else:
-                img = individual.get_image(self.config.resize_train[0],self.config.resize_train[1], self.config.color_mode, force_recalculate=False)
+                img = individual.get_image(self.config.resize_train[0], self.config.resize_train[1])
                 img = Image.fromarray((img*255.0).astype(np.uint8))
                 img_tk = ImageTk.PhotoImage(img)
                 self.img_panels[i] = tk.Button(self.images_panel, image=img_tk, command=partial(select, i))
                 self.img_panels[i].image = img_tk
-                # self.img_panels[i].grid(row=row, column=column, padx= 2, pady= 2)
-                # self.img_panels[i].configure(borderwidth=6, relief="sunken", bg="white")
                 
             self.img_panels[i].grid(row=row, column=column, padx= 2, pady= 2)
             self.img_panels[i].configure(borderwidth=6, relief="sunken", bg="white")
@@ -576,34 +575,22 @@ class GUI:
     def initial_population(self):
         pop = []
         for _ in range(self.config.num_parents):
-            ind = Individual(self.config)
+            ind = CPPN(self.config)
             pop.append(ind)
-        if USE_NOVELTY:
-            for g in pop: g.get_image(self.config.train_image.shape[0], self.config.train_image.shape[1], self.config.color_mode)
-            novelty_ae.update_novelty_network(pop)
         return pop
 
     def next_population(self):
         last_gen = self.pop
         next_gen = copy.copy(self.selected)
         num_crossover = 0  if len(self.selected) < 1 else self.config.num_parents//2
-        if USE_NOVELTY:
-            novelties = novelty_ae.get_ae_novelties(last_gen)
-            for i, n in enumerate(novelties):
-                last_gen[i].novelty = n
-            
-            if self.gen % self.config.autoencoder_frequency == 0:
-                for g in last_gen: g.get_image(self.config.train_image.shape[0], self.config.train_image.shape[1], self.config.color_mode)
-                novelty_ae.update_novelty_network(last_gen)
-            
         if num_crossover > 0:
             for _ in range(num_crossover):
                 choice1 = np.random.choice(self.selected)
                 choice2 = np.random.choice(self.selected)
                 parent1 = copy.deepcopy(choice1)
                 parent2 = copy.deepcopy(choice2)
-                child = crossover(parent1, parent2)
-                child.get_image(self.config.resize_train[0], self.config.resize_train[0], self.config.color_mode)
+                child = parent1.crossover(parent2)
+                child.get_image(self.config.resize_train[0], self.config.resize_train[0])
                 next_gen.append(child)
         
         num = self.config.num_parents
@@ -613,32 +600,13 @@ class GUI:
             choice = np.random.choice(self.selected)
             if hasattr(choice, "animated_player"): delattr(choice, "animated_player")
             next_gen.append(mutate(copy.deepcopy(choice), self.config))
-            # die = np.random.uniform(0,1) 
-            # if(die < .05):
-            #     rand = np.random.choice(last_gen)
-            #     if rand not in next_gen:
-            #         next_gen.append(rand)
-            # elif die < .10:
-            #     ind = copy.deepcopy(np.random.choice(self.selected))
-            #     next_gen.append(ind)
-            # elif die < .40 and USE_NOVELTY:
-            #     sorted_pop = sorted(last_gen, key=lambda x: x.novelty, reverse=True)
-            #     max_novelty = next_gen[0]
-            #     index = 0
-            #     while max_novelty in next_gen:
-            #         max_novelty = sorted_pop[index]
-            #         index+=1
-            #     next_gen.append(max_novelty)
-            # else:
-            #     next_gen.append(Individual(config))
         
         if self.config.wildcard:
-            next_gen.append(Individual(self.config)) # for spicy
+            next_gen.append(CPPN(self.config)) # for spicy
         
         for i, ind in enumerate(next_gen):
             if ind not in self.selected:
                 next_gen[i] = mutate(ind, self.config)
-        # novelty_ae.update_novelty_network(next_gen)
         
         return next_gen
     
